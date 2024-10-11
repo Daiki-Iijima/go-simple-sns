@@ -1,0 +1,6 @@
+{
+  "name": "go api dev",
+  "dockerComposeFile": "../docker-compose.yml",
+  "workspaceFolder": "/workspace/api",
+  "service": "api"
+}

@@ -13,7 +13,7 @@ func main() {
 		c.String(http.StatusOK, "Hello,World!")
 	})
 
-	err := r.Run("localhost:8080")
+	err := r.Run(":8080")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -16,5 +16,13 @@ func Initialize() *gin.Engine {
 	//	削除 : {"user_id:"1"}
 	r.DELETE("/user", controllers.DeleteUserHandler)
 
+	//	投稿関係
+	//	投稿
+	r.POST("/post", controllers.CreatePostHandler)
+	//	取得
+	r.GET("/post", controllers.GetPostHandler)
+	//	削除
+	r.DELETE("/post", controllers.DeletePostHandler)
+
 	return r
 }

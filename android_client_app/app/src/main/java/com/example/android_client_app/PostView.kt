@@ -2,6 +2,7 @@ package com.example.android_client_app
 
 import android.annotation.SuppressLint
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +13,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -29,10 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -68,7 +75,7 @@ data class PostResponse(
     val posts: List<Post>
 )
 
-private suspend fun GetPosts(): PostResponse? {
+private suspend fun GetPosts(reverse: Boolean = true): PostResponse? {
 
     val client = HttpClient(CIO)
     try{
@@ -76,7 +83,8 @@ private suspend fun GetPosts(): PostResponse? {
         val responseStr = response.bodyAsText()
         Log.d("取得結果",responseStr)
         // JSON文字列をオブジェクトに変換
-        return Json.decodeFromString<PostResponse>(responseStr)
+        val postResponse = Json.decodeFromString<PostResponse>(responseStr)
+        return PostResponse(postResponse.posts.reversed())
     } catch (e: Exception) {
         Log.e("エラー", "パースに失敗しました: ${e.message}")
     } finally {
@@ -109,6 +117,37 @@ private fun ParseTime(timeString: String): String{
     return formattedTime
 }
 
+@Composable
+fun PostView(
+    userId:Int,
+    content: String,
+    createdAt: String,
+    modifier: Modifier = Modifier
+){
+    Column (
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(100.dp)
+            .padding(10.dp)
+    ){
+        Row(
+            modifier = Modifier.fillMaxWidth()
+        ){
+            Text(text = "投稿者 : $userId",modifier = Modifier.padding(8.dp))
+            Spacer(modifier = Modifier.weight(1f))
+            Text(text = ParseTime(createdAt) ,modifier = Modifier.padding(8.dp))
+        }
+
+        Text(
+            text = content,
+            fontSize = 20.sp ,
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+        )
+    }
+}
+
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun PostListView(userId: String,modifier: Modifier = Modifier){
@@ -120,59 +159,52 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
 
     val focusManager = LocalFocusManager.current
 
+    val listState = rememberLazyListState()
+
     //  初回コンポーズのみ実行される
     LaunchedEffect(Unit) {
 
         //  最初に1回更新
         postResponse = GetPosts() ?: postResponse
 
+        // リストの最後のアイテムにスクロール
+        listState.animateScrollToItem(postResponse.posts.size - 1)
+
         //  2秒おきに実行する
         while(true){
             postResponse = GetPosts() ?: postResponse
+
+            // リストの最後のアイテムにスクロール
+            listState.animateScrollToItem(postResponse.posts.size - 1)
 
             delay(2000L)
         }
     }
 
-    Log.d("テスト","$BASE_URL/post")
 
     Column (
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = modifier.fillMaxSize()
     ){
-
-        Row(modifier = Modifier.fillMaxWidth().weight(0.5f).padding(horizontal = 10.dp)){
-            Button(onClick = {
-                //  最新の投稿を取得
-                coroutine.launch{
-                    postResponse = GetPosts() ?: postResponse
-                }
-            }) {
-                Text(text = "最新投稿を取得")
-            }
-        }
-
         LazyColumn (
+            state = listState,
             modifier = Modifier.fillMaxSize().weight(9f)
         ){
             items(postResponse.posts){ post->
-                Column (
-                    modifier = Modifier.fillMaxWidth().height(100.dp).padding(10.dp)
-                ){
-                    Row{
-                        Text(text = "投稿者 : ${post.user_id}",modifier = Modifier.padding(8.dp))
-                        Text(text = ParseTime(post.created_at) ,modifier = Modifier.padding(8.dp))
-                    }
-                    Text(text = post.content,modifier = Modifier.padding(horizontal = 8.dp))
-                }
+                PostView(
+                    post.user_id,
+                    post.content,
+                    post.created_at,
+                )
+                HorizontalDivider(thickness = 2.dp)
             }
         }
 
         Row (
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(10.dp).weight(1f)
+            modifier = Modifier.padding(4.dp).weight(1.2f)
         ){
             OutlinedTextField(
                 value = newPostStr,
@@ -180,7 +212,7 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
                     newPostStr = newValue
                 },
                 placeholder = {
-                    Text("新しい投稿")
+                    Text("新しい投稿(10文字まで)")
                 },
                 keyboardOptions = KeyboardOptions.Default.copy(
                     imeAction = ImeAction.Send
@@ -197,17 +229,13 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
 
                             //  最新投稿を取得
                             postResponse = GetPosts() ?: postResponse
+
+                            // リストの最後のアイテムにスクロール
+                            listState.animateScrollToItem(postResponse.posts.size - 1)
                         }
                     }
                 )
             )
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = {
-                }) {
-                Text("投稿")
-            }
         }
     }
 }
@@ -218,4 +246,10 @@ fun PostListPreview(){
     Scaffold { innerPadding ->
         PostListView("1",modifier = Modifier.padding(innerPadding))
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PostPreview(){
+        PostView(1,"これは新しいポスト","2024-10-18T05:50:00.131255Z")
 }

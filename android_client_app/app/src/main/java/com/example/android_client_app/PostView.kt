@@ -38,10 +38,58 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-data class Post(val id : Int,val content: String)
+@SuppressLint("UnsafeOptInUsageError")
+@Serializable
+data class Post(
+    val id: Int,
+    val content: String,
+    val user_id: Int,
+    val created_at: String,
+    val updated_at: String,
+)
+
+@SuppressLint("UnsafeOptInUsageError")
+@Serializable
+data class PostResponse(
+    val posts: List<Post>
+)
+
+private suspend fun GetPosts(): PostResponse? {
+
+    val client = HttpClient(CIO)
+    try{
+        val response : HttpResponse = client.get("$BASE_URL/post")
+        val responseStr = response.bodyAsText()
+        Log.d("取得結果",responseStr)
+        // JSON文字列をオブジェクトに変換
+        return Json.decodeFromString<PostResponse>(responseStr)
+    } catch (e: Exception) {
+        Log.e("エラー", "パースに失敗しました: ${e.message}")
+    } finally {
+        client.close()
+    }
+    return null
+}
+
+private fun ParseTime(timeString: String): String{
+    // 文字列をZonedDateTimeにパースし、タイムゾーンを日本時間に変更
+    val dateTime = ZonedDateTime.parse(timeString).withZoneSameInstant(java.time.ZoneId.of("Asia/Tokyo"))
+
+    // フォーマットパターンを定義
+    val formatter = DateTimeFormatter.ofPattern("yyyy年MM月dd日 HH時mm分", Locale.JAPANESE)
+
+    // フォーマットした文字列を取得
+    val formattedTime = dateTime.format(formatter)
+
+    return formattedTime
+}
 
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
@@ -50,6 +98,8 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
 
     val coroutine = rememberCoroutineScope()
 
+    var postResponse: PostResponse by remember { mutableStateOf(PostResponse(posts = listOf())) }
+
     Log.d("テスト","$BASE_URL/post")
 
     Column (
@@ -57,17 +107,12 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
         verticalArrangement = Arrangement.Center,
         modifier = modifier.fillMaxSize()
     ){
-        val list = List(100){ "データデータデータデータデータデータデータデータデータデータデータデータ:$it" }
 
         Row(modifier = Modifier.fillMaxWidth().weight(0.5f).padding(horizontal = 10.dp)){
             Button(onClick = {
-                val client = HttpClient(CIO)
+                //  最新の投稿を取得
                 coroutine.launch{
-                    val response : HttpResponse = client.get("$BASE_URL/post")
-                    val responseStr = response.bodyAsText()
-                    Log.d("取得結果",responseStr)
-
-                    client.close()
+                    postResponse = GetPosts() ?: postResponse
                 }
             }) {
                 Text(text = "最新投稿を取得")
@@ -77,12 +122,15 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
         LazyColumn (
             modifier = Modifier.fillMaxSize().weight(9f)
         ){
-            items(list){
+            items(postResponse.posts){ post->
                 Column (
                     modifier = Modifier.fillMaxWidth().height(100.dp).padding(10.dp)
                 ){
-                    Text(text = "投稿者 : aa",modifier = Modifier.padding(8.dp))
-                    Text(text = "$it",modifier = Modifier.padding(horizontal = 8.dp))
+                    Row{
+                        Text(text = "投稿者 : ${post.user_id}",modifier = Modifier.padding(8.dp))
+                        Text(text = ParseTime(post.created_at) ,modifier = Modifier.padding(8.dp))
+                    }
+                    Text(text = post.content,modifier = Modifier.padding(horizontal = 8.dp))
                 }
             }
         }
@@ -115,11 +163,15 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
                         Log.d("投稿結果",responseStr)
 
                         client.close()
+
+                        //  最新の投稿を取得
+                        coroutine.launch{
+                            postResponse = GetPosts() ?: postResponse
+                        }
                     }
                 }) {
                 Text("投稿")
             }
-
         }
     }
 }

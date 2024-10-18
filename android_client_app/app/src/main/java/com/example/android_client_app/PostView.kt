@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,11 +29,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.api.Send
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -38,6 +44,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -78,6 +85,17 @@ private suspend fun GetPosts(): PostResponse? {
     return null
 }
 
+private suspend fun SendPost(userId: String,newPostStr: String) {
+    val client = HttpClient(CIO)
+    val response : HttpResponse = client.post("$BASE_URL/post"){
+        contentType(ContentType.Application.Json)
+        setBody("{\"user_id\":\"$userId\",\"content\":\"$newPostStr\"}")
+    }
+    val responseStr = response.bodyAsText()
+
+    client.close()
+}
+
 private fun ParseTime(timeString: String): String{
     // 文字列をZonedDateTimeにパースし、タイムゾーンを日本時間に変更
     val dateTime = ZonedDateTime.parse(timeString).withZoneSameInstant(java.time.ZoneId.of("Asia/Tokyo"))
@@ -99,6 +117,22 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
     val coroutine = rememberCoroutineScope()
 
     var postResponse: PostResponse by remember { mutableStateOf(PostResponse(posts = listOf())) }
+
+    val focusManager = LocalFocusManager.current
+
+    //  初回コンポーズのみ実行される
+    LaunchedEffect(Unit) {
+
+        //  最初に1回更新
+        postResponse = GetPosts() ?: postResponse
+
+        //  2秒おきに実行する
+        while(true){
+            postResponse = GetPosts() ?: postResponse
+
+            delay(2000L)
+        }
+    }
 
     Log.d("テスト","$BASE_URL/post")
 
@@ -147,28 +181,30 @@ fun PostListView(userId: String,modifier: Modifier = Modifier){
                 },
                 placeholder = {
                     Text("新しい投稿")
-                }
+                },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Send
+                ),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        coroutine.launch {
+                            //  投稿
+                            SendPost(userId, newPostStr)
+                            //  キーボードを閉じる
+                            focusManager.clearFocus()
+                            //  テキストをクリア
+                            newPostStr = ""
+
+                            //  最新投稿を取得
+                            postResponse = GetPosts() ?: postResponse
+                        }
+                    }
+                )
             )
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
                 onClick = {
-                    val client = HttpClient(CIO)
-                    coroutine.launch{
-                        val response : HttpResponse = client.post("$BASE_URL/post"){
-                            contentType(ContentType.Application.Json)
-                            setBody("{\"user_id\":\"$userId\",\"content\":\"$newPostStr\"}")
-                        }
-                        val responseStr = response.bodyAsText()
-                        Log.d("投稿結果",responseStr)
-
-                        client.close()
-
-                        //  最新の投稿を取得
-                        coroutine.launch{
-                            postResponse = GetPosts() ?: postResponse
-                        }
-                    }
                 }) {
                 Text("投稿")
             }

@@ -76,7 +76,7 @@ fun EntryPointView(modifier: Modifier = Modifier) {
             }else{
                 //  ユーザーIDを持っている場合
                 //  投稿一覧と新規投稿画面を表示
-
+                PostListView(userId = userId,modifier = modifier)
             }
         }
     }

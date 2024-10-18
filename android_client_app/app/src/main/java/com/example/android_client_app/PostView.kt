@@ -1,5 +1,7 @@
 package com.example.android_client_app
 
+import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 
@@ -26,9 +29,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+data class Post(val id : Int,val content: String)
+
+@SuppressLint("CoroutineCreationDuringComposition")
 @Composable
-fun PostListView(modifier: Modifier = Modifier){
+fun PostListView(userId: String,modifier: Modifier = Modifier){
     var newPostStr by remember { mutableStateOf("") }
+
+    val coroutine = rememberCoroutineScope()
+
+    Log.d("テスト","$BASE_URL/post")
 
     Column (
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -36,6 +58,21 @@ fun PostListView(modifier: Modifier = Modifier){
         modifier = modifier.fillMaxSize()
     ){
         val list = List(100){ "データデータデータデータデータデータデータデータデータデータデータデータ:$it" }
+
+        Row(modifier = Modifier.fillMaxWidth().weight(0.5f).padding(horizontal = 10.dp)){
+            Button(onClick = {
+                val client = HttpClient(CIO)
+                coroutine.launch{
+                    val response : HttpResponse = client.get("$BASE_URL/post")
+                    val responseStr = response.bodyAsText()
+                    Log.d("取得結果",responseStr)
+
+                    client.close()
+                }
+            }) {
+                Text(text = "最新投稿を取得")
+            }
+        }
 
         LazyColumn (
             modifier = Modifier.fillMaxSize().weight(9f)
@@ -67,7 +104,19 @@ fun PostListView(modifier: Modifier = Modifier){
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = {}) {
+                onClick = {
+                    val client = HttpClient(CIO)
+                    coroutine.launch{
+                        val response : HttpResponse = client.post("$BASE_URL/post"){
+                            contentType(ContentType.Application.Json)
+                            setBody("{\"user_id\":\"$userId\",\"content\":\"$newPostStr\"}")
+                        }
+                        val responseStr = response.bodyAsText()
+                        Log.d("投稿結果",responseStr)
+
+                        client.close()
+                    }
+                }) {
                 Text("投稿")
             }
 
@@ -79,6 +128,6 @@ fun PostListView(modifier: Modifier = Modifier){
 @Composable
 fun PostListPreview(){
     Scaffold { innerPadding ->
-        PostListView(modifier = Modifier.padding(innerPadding))
+        PostListView("1",modifier = Modifier.padding(innerPadding))
     }
 }

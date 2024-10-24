@@ -1,0 +1,36 @@
+.postCard {
+  box-shadow: 0px 0px 24px -5px #777777;
+  border-radius: 20px;
+  margin: 10px;
+  display: flex;
+  flex-direction:column;
+  align-items: first baseline;
+}
+
+.postHeader{
+  display: flex;
+  flex-direction:row;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.postTime{
+  color: white;
+  background-color: cadetblue;
+  border-radius: 10px;
+  padding: 4px 10px;
+}
+
+.postId{
+  color: white;
+  background-color: cadetblue;
+  border-radius: 10px;
+  padding: 4px 10px;
+  margin: 0px 10px;
+}
+
+.postContent{
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding: 0 15px;
+}

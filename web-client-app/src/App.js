@@ -1,110 +1,79 @@
 import './App.css';
 import { useEffect, useState } from "react"
-import Post from './components/Post/Post';
-import InputField from './components/InputField/InputField';
 
 //  ルーティング
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
-import Login from './components/Auth/Login';
-import Logout from './components/Auth/Logout';
-import SignUp from './components/Auth/Sinup';
+import Home from './components/Home';
+import { GetPosts, SendPost } from './utils/RequestUtil';
+import Auth from './components/Auth/Auth';
 
 function App() {
 
-  const URL = "http://localhost:8080/post";
+  const GetPostUrl = "http://localhost:8080/post";
+  const SendPostUrl = "http://localhost:8080/post";
+
   const [json, setJson] = useState(null)
 
   const [userId, setUserId] = useState(localStorage.getItem("userId"));
   const [sendContent, setSendContent] = useState("");
 
-  const SendPost = () => {
-    fetch(URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        user_id: userId.toString(),
-        content: sendContent
-      })
-    }).catch((error) =>
-      console.log(error)
-    );
+  const Send = async () => {
+    const result = await SendPost(SendPostUrl, {
+      user_id: userId.toString(),
+      content: sendContent
+    });
+
+    console.log(result);
 
     //  リダイレクト
     window.location.href = "/";
   }
 
-  const GetPosts = async (url) => {
-    try {
-      let response = fetch(url);
-      let data = await response.then((res) => res.json());
-      setJson(data);
-      console.log(data);
-    } catch (error) {
-      setJson(null);
+  const fetchPosts = async () => {
+    const getJson = await GetPosts(GetPostUrl);
+    if (getJson) {
+      console.log(getJson);
+      setJson(getJson);
+    } else {
+      console.log("データの取得に失敗");
     }
-  };
+  }
 
   useEffect(() => {
-    GetPosts(URL);
+    fetchPosts();
   }, []);
+
+  //  自動更新用
+  useEffect(() => {
+    // 2秒ごとにカウントを1増やす
+    const intervalId = setInterval(() => {
+      fetchPosts();
+    }, 2000);
+
+    // クリーンアップ関数で interval をクリア
+    return () => clearInterval(intervalId);
+  }, []); // 空の依存配列で最初のレンダリング時に1度だけ実行
+
 
   return (
     <Router>
       <Routes>
-        <Route path='/' element={(
-          <div className="App">
-            {userId && userId !== "" ?
-              (
-                <>
-                  {/* ログインしていたら */}
-                  < Logout setUserId={setUserId} />
-
-                  {/* 投稿入力欄 */}
-                  <div>
-                    <InputField
-                      setSendContent={setSendContent}
-                      sendPost={SendPost}
-                    />
-                  </div>
-                </>
-              )
-              :
-              (
-                <>
-                  {/* // ログインしていなかったら */}
-                  <h2>新規登録</h2>
-                  < SignUp setUserId={setUserId} />
-                  <h2>ログイン</h2>
-                  < Login setUserId={setUserId} />
-                </>
-              )
-            }
-            {/* ボタン */}
-            <button onClick={() => {
-              GetPosts(URL);
-            }}>最新データ取得</button>
-
-
-            {/* 投稿一覧 */}
-            {
-              json && json.posts && json.posts.map((post) =>
-                <Post
-                  key={post.id}
-                  content={post.content}
-                  userId={post.user_id}
-                  createTime={post.created_at}
-                />
-              )
-            }
-          </div>
-        )
-        } />
+        <Route path='/' element={
+          <Home
+            userId={userId}
+            json={json}
+            setSendContent={setSendContent}
+            sendPost={Send}
+          />}
+        />
+        <Route path='/auth' element={
+          <Auth
+            userId={userId}
+            setUserId={setUserId}
+          />}
+        />
       </Routes>
     </Router>
-
-
   );
 }
 

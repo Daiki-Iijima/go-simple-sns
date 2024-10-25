@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 
 import "./Login.css"
+import { useNavigate } from 'react-router-dom';
+import { SendPost } from '../../utils/RequestUtil';
 
 const Login = ({ setUserId }) => {
 
@@ -9,36 +11,28 @@ const Login = ({ setUserId }) => {
 
   const [error, setError] = useState("");
 
-  const LoginURL = "http://localhost:8080/login";
+  const LoginUrl = "http://localhost:8080/login";
 
-  const loginPost = () => {
-    const login = async () => await fetch(LoginURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        username: userName,
-        password: userPass
-      })
-    }).then((res) => res.json()
-    ).then((json) => {
-      console.log(json);
-      if (json.error) {
-        setError(json.error);
-        return "";
-      } else {
-        setError("");
-        //  使用できるように渡す
-        setUserId(json.user_id);
-        //  保存
-        localStorage.setItem("userId", json.user_id);
-        ;
-      }
-    }).catch((error) =>
-      console.log(error)
-    );
-    login();
+  const navigate = useNavigate();
+
+  const loginPost = async () => {
+    const result = await SendPost(LoginUrl, {
+      username: userName,
+      password: userPass
+    });
+
+    // 実行結果を取得
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setError("");
+      //  使用できるように渡す
+      setUserId(result.user_id);
+      //  保存
+      localStorage.setItem("userId", result.user_id);
+
+      navigate("/");
+    }
   }
 
   return (

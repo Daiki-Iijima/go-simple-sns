@@ -1,12 +1,24 @@
 package routers
 
 import (
-	"github.com/gin-gonic/gin"
 	"simple-sns/controllers"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 func Initialize() *gin.Engine {
 	r := gin.Default()
+
+	//	CROSエラーの対策
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // ReactアプリのURL
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12時間
+	}))
 
 	//	ユーザー関係
 	//	登録 : {"username":"aaa","password":"aaa"} : {"user_id":1}

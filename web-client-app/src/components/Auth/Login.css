@@ -1,0 +1,11 @@
+.loginForm{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px;
+}
+
+.loginForm p {
+  color: red;
+  margin: 2px;
+}
